@@ -75,14 +75,28 @@ def wait_for_idle(tmux_session: str, timeout_sec: int = 60) -> bool:
     return False
 
 
+SHIFT_ENTER = "\x1b[13;2u"
+
+
 def inject_tmux(tmux_session: str, text: str, retries: int = 3):
-    """Send text into a tmux session with retry on transient errors."""
+    """Send text into a tmux session with retry on transient errors.
+
+    Newlines become Shift+Enter (CSI u) so the message stays as one input.
+    """
+    lines = text.split("\n")
     for attempt in range(retries):
         try:
-            subprocess.run(
-                ["tmux", "send-keys", "-t", tmux_session, "-l", text],
-                capture_output=True, text=True, check=True,
-            )
+            for i, line in enumerate(lines):
+                if line:
+                    subprocess.run(
+                        ["tmux", "send-keys", "-t", tmux_session, "-l", line],
+                        capture_output=True, text=True, check=True,
+                    )
+                if i < len(lines) - 1:
+                    subprocess.run(
+                        ["tmux", "send-keys", "-t", tmux_session, "-l", SHIFT_ENTER],
+                        capture_output=True, text=True, check=True,
+                    )
             subprocess.run(
                 ["tmux", "send-keys", "-t", tmux_session, "Enter"],
                 capture_output=True, text=True, check=True,
