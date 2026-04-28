@@ -72,11 +72,6 @@ def main():
     else:
         subprocess.run(tmux_new + claude_cmd, check=True)
 
-    stop_sound = config.get("stop_sound")
-    if stop_sound:
-        subprocess.run(["tmux", "set-hook", "-t", session, "pane-died",
-                        f"run-shell 'afplay {stop_sound}'"], capture_output=True)
-
     (SUPERVISED_DIR / session).touch()
 
     jsonl = find_jsonl(session)
