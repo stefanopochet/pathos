@@ -17,8 +17,3 @@
 # Sound played when a critical issue is confirmed and injected
 # Set to "" to disable
 # alert_command: afplay /System/Library/Sounds/Sosumi.aiff
-
-# Additional sound played when a pathos session ends (via tmux hook)
-# Plays alongside Claude's own stop sound, not instead of it
-# Set to a sound file path to enable, omit to disable
-# stop_sound: /System/Library/Sounds/Tink.aiff

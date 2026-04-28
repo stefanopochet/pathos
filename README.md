@@ -80,9 +80,6 @@ Config lives at `~/.pathos/config.yml` (created on install with all values comme
 
 # Sound on critical issue confirmed. Set to "" to disable.
 # alert_command: afplay /System/Library/Sounds/Sosumi.aiff
-
-# Additional sound when a pathos session ends (via tmux hook)
-# stop_sound: /System/Library/Sounds/Tink.aiff
 ```
 
 Uncomment and edit what you want to change. Defaults apply for everything else.
