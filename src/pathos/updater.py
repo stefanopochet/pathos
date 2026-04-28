@@ -2,6 +2,7 @@
 import json
 import os
 import shutil
+import subprocess
 import tarfile
 import tempfile
 from pathlib import Path
@@ -15,18 +16,42 @@ REPO = "stefanopochet/pathos"
 API_URL = f"https://api.github.com/repos/{REPO}/releases/latest"
 
 
+def _gh_token() -> str | None:
+    """Get GitHub token from gh CLI (5000 req/hr vs 60 unauthenticated)."""
+    try:
+        result = subprocess.run(
+            ["gh", "auth", "token"], capture_output=True, text=True, timeout=5,
+        )
+        if result.returncode == 0:
+            return result.stdout.strip()
+    except Exception:
+        pass
+    return None
+
+
+def _api_headers() -> dict:
+    headers = {"Accept": "application/vnd.github.v3+json"}
+    token = _gh_token()
+    if token:
+        headers["Authorization"] = f"token {token}"
+    return headers
+
+
 def check_and_update() -> bool:
     """Check GitHub for a newer release and install it. Returns True if updated."""
     if (PATHOS_DIR / "src").is_symlink():
         return False
 
     try:
-        req = Request(API_URL, headers={"Accept": "application/vnd.github.v3+json"})
+        headers = _api_headers()
+        req = Request(API_URL, headers=headers)
         with urlopen(req, timeout=5) as resp:
             data = json.loads(resp.read())
 
         remote_version = data["tag_name"].lstrip("v")
-        if remote_version == __version__:
+        remote_parts = tuple(int(x) for x in remote_version.split("."))
+        local_parts = tuple(int(x) for x in __version__.split("."))
+        if remote_parts <= local_parts:
             return False
 
         print(f"Updating pathos to v{remote_version}, wait a sec...")
@@ -34,7 +59,8 @@ def check_and_update() -> bool:
         tarball_url = data["tarball_url"]
         tmpdir = tempfile.mkdtemp()
         try:
-            with urlopen(tarball_url, timeout=30) as resp:
+            tarball_req = Request(tarball_url, headers=headers)
+            with urlopen(tarball_req, timeout=30) as resp:
                 tarball_path = os.path.join(tmpdir, "release.tar.gz")
                 with open(tarball_path, "wb") as f:
                     f.write(resp.read())

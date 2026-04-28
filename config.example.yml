@@ -1,0 +1,16 @@
+# Pathos configuration
+# Copy to ~/.pathos/config.yml and uncomment to customize.
+# All values below show the defaults — only uncomment what you want to change.
+
+# Models for the two-stage pipeline
+# triage_model: claude-haiku-4-5-20251001
+# validate_model: claude-opus-4-7
+
+# Poll interval in seconds (how often the supervisor checks for new activity)
+# poll_interval: 60
+# debug_poll_interval: 5
+
+# Sound commands (macOS). Set to "" to disable.
+# alert_command: afplay /System/Library/Sounds/Sosumi.aiff
+# supervised_stop_command: afplay /System/Library/Sounds/Pop.aiff
+# normal_stop_command: afplay /System/Library/Sounds/Glass.aiff
