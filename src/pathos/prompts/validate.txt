@@ -50,5 +50,5 @@ VERDICT: DISMISS
 REASON: <one-sentence explanation of why this is not a real issue>
 OR
 VERDICT: CRITICAL
-REASON: <specific, concrete description — precise enough that the agent, re-reading
-its own log, can find the exact spot and address it>
+TITLE: <concise one-liner — what went wrong, clear enough to understand at a glance>
+REASON: <technical details — specific enough that the agent can locate the exact spot and fix it>

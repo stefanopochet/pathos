@@ -31,6 +31,17 @@ def pick_session_name(base: str) -> str:
 
 
 def main():
+    # Internal: stop sound (called by Claude Code's stop hook)
+    if len(sys.argv) > 1 and sys.argv[1] == "_stop-sound":
+        config = load_config()
+        has_supervised = any(SUPERVISED_DIR.iterdir()) if SUPERVISED_DIR.exists() else False
+        key = "supervised_stop_command" if has_supervised else "normal_stop_command"
+        cmd = config.get(key, "")
+        if cmd:
+            subprocess.Popen(cmd, shell=True)
+        return
+
+    # Auto-update
     if not os.getenv("_PATHOS_UPDATING"):
         if check_and_update():
             os.environ["_PATHOS_UPDATING"] = "1"

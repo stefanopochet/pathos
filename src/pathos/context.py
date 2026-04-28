@@ -34,13 +34,9 @@ def extract_first_user_message(jsonl: Path) -> str:
                 if entry.get("type") == "human":
                     msg = entry.get("message", {})
                     if isinstance(msg, dict):
-                        content = msg.get("content", "")
-                        if isinstance(content, list):
-                            for block in content:
-                                if isinstance(block, dict) and block.get("type") == "text":
-                                    return block["text"][:500]
-                        elif isinstance(content, str):
-                            return content[:500]
+                        text = _content_text(msg.get("content", ""))
+                        if text:
+                            return text[:500]
     except Exception:
         pass
     return ""
@@ -66,13 +62,9 @@ def extract_last_user_message(jsonl: Path) -> str:
             if entry.get("type") == "human":
                 msg = entry.get("message", {})
                 if isinstance(msg, dict):
-                    content = msg.get("content", "")
-                    if isinstance(content, list):
-                        for block in content:
-                            if isinstance(block, dict) and block.get("type") == "text":
-                                return block["text"][:500]
-                    elif isinstance(content, str):
-                        return content[:500]
+                    text = _content_text(msg.get("content", ""))
+                    if text:
+                        return text[:500]
     except Exception:
         pass
     return ""
@@ -147,11 +139,6 @@ def _content_text(content) -> str:
                 return block.get("text", "")
     return ""
 
-
-# Disabled: truncation causes false positives — triage/validate models can't tell
-# that tool calls were executed when results are stripped. Until we find a way to
-# communicate the truncation reliably, we let the byte cap do all the trimming.
-# RESULT_TRUNCATE = 300
 
 def extract_transcript(jsonl: Path, since: int, max_bytes: int = 80000) -> str:
     """Extract transcript from JSONL — full content, trimmed only by byte cap."""

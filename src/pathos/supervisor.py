@@ -12,13 +12,16 @@ from .context import append_summary, extract_transcript, get_context, init_summa
 from .session import find_jsonl, inject_tmux, session_alive, setup_tmux_keys, wait_for_idle
 
 INJECTION_TEMPLATE = (
-    "Hey, I was just reviewing your latest changes and saw this issue:\n"
+    "[PATHOS]\n"
     "\n"
-    "{reason}\n"
+    "While supervising your work, I spotted an issue I'd like to flag.\n"
     "\n"
-    "Can you please stop your current process, carefully review what you did, "
-    "figure out if you have a way to address and fix this issue reliably then "
-    "do it and continue your work. If not stop and let's align on this."
+    "**{title}**\n"
+    "\n"
+    "Here's what I see: {reason}\n"
+    "\n"
+    "Please stop, review what happened, and fix it if you can. "
+    "Otherwise, pause and let's align."
 )
 
 
@@ -100,23 +103,26 @@ def triage(jsonl: Path, since: int, session_id: str, config: dict) -> tuple[str,
     return parse_triage_output(stdout)
 
 
-def parse_validate_output(stdout: str) -> tuple[bool, str]:
-    """Parse VERDICT/REASON format from validator output."""
+def parse_validate_output(stdout: str) -> tuple[bool, str, str]:
+    """Parse VERDICT/TITLE/REASON format from validator output."""
     confirmed = False
+    title = ""
     reason = ""
     for line in stdout.splitlines():
         line = line.strip()
         if line.startswith("VERDICT:"):
             verdict = line.split(":", 1)[1].strip()
             confirmed = verdict.upper().startswith("CRITICAL")
+        elif line.startswith("TITLE:"):
+            title = line.split(":", 1)[1].strip()
         elif line.startswith("REASON:"):
             reason = line.split(":", 1)[1].strip()
-    return confirmed, reason
+    return confirmed, title, reason
 
 
 def validate(jsonl: Path, since: int, lines: int, session_id: str,
-             triage_summary: str, triage_reason: str, config: dict) -> tuple[bool, str]:
-    """Stage 2: deep validation. Returns (confirmed, reason)."""
+             triage_summary: str, triage_reason: str, config: dict) -> tuple[bool, str, str]:
+    """Stage 2: deep validation. Returns (confirmed, title, reason)."""
     context = get_context(session_id, jsonl)
     transcript = extract_transcript(jsonl, since)
     prompt = load_prompt("validate.txt").format(
@@ -130,23 +136,25 @@ def validate(jsonl: Path, since: int, lines: int, session_id: str,
     stdout, err = run_claude(config["validate_model"], prompt)
 
     if err:
-        return False, f"validate error: {err}"
+        return False, "", f"validate error: {err}"
 
     return parse_validate_output(stdout)
 
 
-def play_alert():
-    """Play alert sound on macOS, silent no-op elsewhere."""
-    sound = "/System/Library/Sounds/Sosumi.aiff"
-    if Path(sound).exists():
-        subprocess.Popen(["afplay", sound])
+def play_alert(config: dict):
+    """Run the configured alert command."""
+    cmd = config.get("alert_command", "")
+    if cmd:
+        try:
+            subprocess.Popen(cmd, shell=True)
+        except Exception:
+            pass
 
 
 def poll_loop(tmux_session: str, jsonl: Path, log_path: Path, poll_sec: int):
     config = load_config()
     setup_tmux_keys(tmux_session)
     since = sum(1 for _ in open(jsonl)) if jsonl.exists() else 0
-    last_critical_at = -1
     session_id = jsonl.stem
     agent_name = tmux_session
 
@@ -189,29 +197,26 @@ def poll_loop(tmux_session: str, jsonl: Path, log_path: Path, poll_sec: int):
                 since = n
                 continue
 
-            confirmed, val_reason = validate(
+            confirmed, val_title, val_reason = validate(
                 jsonl, since, n, session_id, summary, reason, config,
             )
             since = n
             log_entry(log_path, {
                 "stage": "validate", "confirmed": confirmed,
-                "lines": n, "reason": val_reason,
+                "lines": n, "title": val_title, "reason": val_reason,
             }, agent_name)
 
             if not confirmed:
-                short_reason = reason[:100] if len(reason) > 100 else reason
-                append_summary(session_id, f"DISMISSED: {short_reason}")
+                append_summary(session_id, f"DISMISSED: {val_title or reason[:100]}")
                 continue
 
-            last_critical_at = n
-
             try:
-                text = INJECTION_TEMPLATE.format(reason=val_reason)
+                text = INJECTION_TEMPLATE.format(title=val_title, reason=val_reason)
                 if not wait_for_idle(tmux_session, timeout_sec=120):
                     log_entry(log_path, {"event": "inject_skipped", "reason": "agent not idle"}, agent_name)
                 inject_tmux(tmux_session, text)
-                play_alert()
-                log_entry(log_path, {"event": "injected", "reason": val_reason}, agent_name)
+                play_alert(config)
+                log_entry(log_path, {"event": "injected", "title": val_title, "reason": val_reason}, agent_name)
             except subprocess.CalledProcessError as e:
                 log_entry(log_path, {"error": f"inject failed: {e}"}, agent_name)
 

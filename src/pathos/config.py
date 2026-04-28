@@ -4,7 +4,8 @@ from importlib import resources
 from pathlib import Path
 
 PATHOS_DIR = Path.home() / ".pathos"
-CONFIG_PATH = PATHOS_DIR / "config.json"
+CONFIG_YML = PATHOS_DIR / "config.yml"
+CONFIG_JSON = PATHOS_DIR / "config.json"
 PROMPTS_DIR = PATHOS_DIR / "prompts"
 LOGS_DIR = PATHOS_DIR / "logs"
 GLOBAL_LOG = LOGS_DIR / "all.log"
@@ -15,7 +16,39 @@ DEFAULTS = {
     "validate_model": "claude-opus-4-7",
     "poll_interval": 60,
     "debug_poll_interval": 5,
+    "alert_command": "afplay /System/Library/Sounds/Sosumi.aiff",
+    "supervised_stop_command": "afplay /System/Library/Sounds/Pop.aiff",
+    "normal_stop_command": "afplay /System/Library/Sounds/Glass.aiff",
 }
+
+
+def _parse_yaml(text: str) -> dict:
+    """Parse flat YAML: key-value pairs with comments. No external deps needed."""
+    result = {}
+    for line in text.splitlines():
+        line = line.strip()
+        if not line or line.startswith("#"):
+            continue
+        if ":" not in line:
+            continue
+        key, _, value = line.partition(":")
+        key = key.strip()
+        value = value.strip()
+        if "  #" in value:
+            value = value[: value.index("  #")].strip()
+        if len(value) >= 2 and value[0] in ('"', "'") and value[-1] == value[0]:
+            result[key] = value[1:-1]
+        elif value.lstrip("-").isdigit():
+            result[key] = int(value)
+        elif value.lower() in ("true", "yes"):
+            result[key] = True
+        elif value.lower() in ("false", "no"):
+            result[key] = False
+        elif value.lower() in ("null", "~") or value == "":
+            result[key] = None
+        else:
+            result[key] = value
+    return result
 
 
 def ensure_dirs():
@@ -25,11 +58,17 @@ def ensure_dirs():
 
 def load_config() -> dict:
     config = dict(DEFAULTS)
-    if CONFIG_PATH.exists():
+    if CONFIG_YML.exists():
         try:
-            user = json.loads(CONFIG_PATH.read_text())
+            user = _parse_yaml(CONFIG_YML.read_text())
             config.update(user)
-        except (json.JSONDecodeError, OSError):
+        except Exception:
+            pass
+    elif CONFIG_JSON.exists():
+        try:
+            user = json.loads(CONFIG_JSON.read_text())
+            config.update(user)
+        except Exception:
             pass
     return config
 
