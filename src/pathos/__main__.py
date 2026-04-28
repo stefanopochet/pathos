@@ -2,6 +2,7 @@
 import argparse
 import os
 import shlex
+import shutil
 import subprocess
 import sys
 
@@ -9,6 +10,7 @@ from . import __version__
 from .config import LOGS_DIR, SUPERVISED_DIR, ensure_dirs, load_config
 from .session import find_jsonl
 from .supervisor import log_entry, poll_loop
+from .updater import check_and_update
 
 
 def tmux_session_exists(name: str) -> bool:
@@ -29,6 +31,13 @@ def pick_session_name(base: str) -> str:
 
 
 def main():
+    if not os.getenv("_PATHOS_UPDATING"):
+        if check_and_update():
+            os.environ["_PATHOS_UPDATING"] = "1"
+            pathos_bin = shutil.which("pathos")
+            if pathos_bin:
+                os.execv(pathos_bin, ["pathos"] + sys.argv[1:])
+
     config = load_config()
     parser = argparse.ArgumentParser(
         prog="pathos",
