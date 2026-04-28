@@ -17,8 +17,6 @@ DEFAULTS = {
     "poll_interval": 60,
     "debug_poll_interval": 5,
     "alert_command": "afplay /System/Library/Sounds/Sosumi.aiff",
-    "supervised_stop_command": "afplay /System/Library/Sounds/Pop.aiff",
-    "normal_stop_command": "afplay /System/Library/Sounds/Glass.aiff",
 }
 
 

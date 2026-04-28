@@ -12,5 +12,7 @@
 
 # Sound commands (macOS). Set to "" to disable.
 # alert_command: afplay /System/Library/Sounds/Sosumi.aiff
-# supervised_stop_command: afplay /System/Library/Sounds/Pop.aiff
-# normal_stop_command: afplay /System/Library/Sounds/Glass.aiff
+
+# Override Claude's stop sound in supervised sessions.
+# Requires Claude's stop hook to use: afplay "${CLAUDE_STOP_SOUND:-/System/Library/Sounds/Glass.aiff}"
+# stop_sound: /System/Library/Sounds/Tink.aiff
