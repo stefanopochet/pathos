@@ -74,7 +74,7 @@ def main():
 
     stop_sound = config.get("stop_sound")
     if stop_sound:
-        subprocess.run(["tmux", "set-hook", "-t", session, "pane-exited",
+        subprocess.run(["tmux", "set-hook", "-t", session, "pane-died",
                         f"run-shell 'afplay {stop_sound}'"], capture_output=True)
 
     (SUPERVISED_DIR / session).touch()
