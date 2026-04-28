@@ -84,7 +84,10 @@ def main():
     session_link.symlink_to(log_path)
     log_entry(log_path, {"event": "started", "session": session, "jsonl": str(jsonl)}, session)
 
-    pid = os.fork()
+    import warnings
+    with warnings.catch_warnings():
+        warnings.simplefilter("ignore", DeprecationWarning)
+        pid = os.fork()
     if pid == 0:
         sys.stdin.close()
         try:
