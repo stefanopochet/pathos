@@ -32,10 +32,10 @@ Two-stage pipeline: a fast model scans every message for potential issues, then 
 
 ## Requirements
 
+- macOS
 - Python 3.10+
 - [tmux](https://github.com/tmux/tmux)
 - [Claude Code CLI](https://docs.anthropic.com/en/docs/claude-code) (`claude` command)
-- macOS or Linux (Windows via WSL)
 
 ## Install
 
