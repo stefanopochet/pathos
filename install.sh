@@ -35,11 +35,12 @@ install_local() {
     mkdir -p "$INSTALL_DIR/src" "$INSTALL_DIR/logs"
     cp -r "$script_dir/src/pathos" "$INSTALL_DIR/src/"
 
+    copy_example_config "$script_dir"
     setup_launcher
     echo ""
     echo "pathos installed to $INSTALL_DIR"
     echo "Logs:   $INSTALL_DIR/logs/"
-    echo "Config: $INSTALL_DIR/config.json (optional)"
+    echo "Config: $INSTALL_DIR/config.yml (edit to customize)"
 }
 
 # --- Install from GitHub release ---
@@ -70,11 +71,22 @@ install_remote() {
     rm -rf "$INSTALL_DIR/src/pathos"
     cp -r "$tmpdir/src/pathos" "$INSTALL_DIR/src/"
 
+    copy_example_config "$tmpdir"
     setup_launcher
     echo ""
     echo "pathos $version installed to $INSTALL_DIR"
     echo "Logs:   $INSTALL_DIR/logs/"
-    echo "Config: $INSTALL_DIR/config.json (optional)"
+    echo "Config: $INSTALL_DIR/config.yml (edit to customize)"
+}
+
+# --- Copy example config on first install ---
+
+copy_example_config() {
+    local source_dir="$1"
+    if [ ! -f "$INSTALL_DIR/config.yml" ] && [ -f "$source_dir/config.example.yml" ]; then
+        cp "$source_dir/config.example.yml" "$INSTALL_DIR/config.yml"
+        echo "Created config: $INSTALL_DIR/config.yml"
+    fi
 }
 
 # --- Shared setup ---

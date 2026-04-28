@@ -65,18 +65,26 @@ On exit, it prints a resume command so you can pick up where you left off.
 
 ## Configuration
 
-Config lives at `~/.pathos/config.json`:
+Config lives at `~/.pathos/config.yml` (created on install with all values commented out):
 
-```json
-{
-  "triage_model": "claude-haiku-4-5-20251001",
-  "validate_model": "claude-opus-4-7",
-  "poll_interval": 60,
-  "debug_poll_interval": 5
-}
+```yaml
+# Models for the two-stage pipeline
+# triage_model: claude-haiku-4-5-20251001
+# validate_model: claude-opus-4-7
+
+# Poll interval in seconds
+# poll_interval: 60
+# debug_poll_interval: 5
+
+# Sound commands (macOS). Set to "" to disable.
+# alert_command: afplay /System/Library/Sounds/Sosumi.aiff
+# supervised_stop_command: afplay /System/Library/Sounds/Pop.aiff
+# normal_stop_command: afplay /System/Library/Sounds/Glass.aiff
 ```
 
-Custom prompts can be placed in `~/.pathos/prompts/` to override the defaults.
+Uncomment and edit what you want to change. Defaults apply for everything else.
+
+Custom prompts can be placed in `~/.pathos/prompts/` to override the built-in triage and validation prompts.
 
 ## Updates
 
