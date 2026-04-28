@@ -1,0 +1,59 @@
+Pathos Community License Agreement
+Version 1.0, April 2026
+
+Copyright (c) 2026 Stefano Pochet. All rights reserved.
+
+1. DEFINITIONS
+
+"Software" means the pathos supervisor software and associated documentation.
+"Licensor" means Stefano Pochet.
+"You" means the individual or entity exercising the rights granted under this
+Agreement.
+"Revenue" means the total annual gross revenue of the organization that employs
+or contracts You, calculated over the most recent 12-month fiscal period.
+
+2. LICENSE GRANT
+
+Subject to the terms of this Agreement, the Licensor grants You a non-exclusive,
+worldwide, royalty-free, non-transferable license to use, copy, modify, and
+distribute the Software, with the following conditions:
+
+  (a) If Revenue is below $10,000,000 USD: the license is perpetual and free.
+
+  (b) If Revenue is $10,000,000 USD or above: the license is free for the first
+      12 months from Your initial use of the Software. After 12 months, You must
+      obtain a commercial license by contacting the Licensor.
+
+  (c) Individual use, academic research, and non-profit organizations are always
+      free regardless of Revenue.
+
+3. REDISTRIBUTION
+
+You may redistribute the Software in source or binary form, provided that:
+  (a) You include a copy of this License with any distribution.
+  (b) You clearly mark any modifications as Your own.
+  (c) You do not use the Licensor's name or trademarks to endorse derived works
+      without written permission.
+
+4. CONTRIBUTIONS
+
+Any contributions You submit to the Software (via pull request, patch, or
+otherwise) are licensed under the same terms as this Agreement, unless explicitly
+stated otherwise.
+
+5. NO WARRANTY
+
+THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY, FITNESS
+FOR A PARTICULAR PURPOSE, AND NONINFRINGEMENT. IN NO EVENT SHALL THE LICENSOR BE
+LIABLE FOR ANY CLAIM, DAMAGES, OR OTHER LIABILITY ARISING FROM THE USE OF THE
+SOFTWARE.
+
+6. TERMINATION
+
+This Agreement terminates automatically if You fail to comply with its terms.
+Upon termination, You must cease all use and destroy all copies of the Software.
+
+7. GOVERNING LAW
+
+This Agreement is governed by the laws of Italy.
