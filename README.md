@@ -68,18 +68,21 @@ On exit, it prints a resume command so you can pick up where you left off.
 Config lives at `~/.pathos/config.yml` (created on install with all values commented out):
 
 ```yaml
-# Models for the two-stage pipeline
+# Model for fast triage scan (flags potential issues)
 # triage_model: claude-haiku-4-5-20251001
+
+# Model for deep validation (investigates before interrupting)
 # validate_model: claude-opus-4-7
 
-# Poll interval in seconds
+# How often the supervisor checks for new activity (seconds)
 # poll_interval: 60
 # debug_poll_interval: 5
 
-# Sound commands (macOS). Set to "" to disable.
+# Sound on critical issue confirmed. Set to "" to disable.
 # alert_command: afplay /System/Library/Sounds/Sosumi.aiff
-# supervised_stop_command: afplay /System/Library/Sounds/Pop.aiff
-# normal_stop_command: afplay /System/Library/Sounds/Glass.aiff
+
+# Additional sound when a pathos session ends (via tmux hook)
+# stop_sound: /System/Library/Sounds/Tink.aiff
 ```
 
 Uncomment and edit what you want to change. Defaults apply for everything else.
