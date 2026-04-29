@@ -4,7 +4,7 @@ External supervisor for [Claude Code](https://docs.anthropic.com/en/docs/claude-
 
 Pathos watches your Claude Code session in real time, catches quality issues before they compound, and injects corrections directly into the agent's conversation — no manual review required.
 
-The result: your agent codes like it has a senior engineer pair-programming — catching mistakes in real time instead of letting them compound across the session.
+The result: Mythos-grade output - your agent codes like it has a senior engineer pair-programming — catching mistakes in real time instead of letting them compound across the session.
 
 ## The problem
 
