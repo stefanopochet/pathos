@@ -1,28 +1,42 @@
-# pathos
+# Pathos
 
 External supervisor for [Claude Code](https://docs.anthropic.com/en/docs/claude-code) agents.
 
 Pathos watches your Claude Code session in real time, catches quality issues before they compound, and injects corrections directly into the agent's conversation — no manual review required.
 
-## How it works
+The result: your agent codes like it has a senior engineer pair-programming — catching mistakes in real time instead of letting them compound across the session.
 
+## The problem
+
+The majority of agent mistakes fall into a handful of known patterns — skipping tests, ignoring instructions, silently changing approach, claiming work is done without verifying. Agents make these mistakes not because they can't do better, but because all their attention goes into actually delivering the work.
+
+## The fix
+
+A separate supervisor session exclusively focused on watching for these patterns — so the agent can focus on building while something else focuses on quality.
+
+## Install
+
+```bash
+curl -fsSL https://raw.githubusercontent.com/stefanopochet/pathos/main/install.sh | bash
 ```
-pathos → tmux session → claude (interactive)
-           ↓
-     supervisor (background)
-           ↓
-     polls JSONL conversation log
-           ↓
-     Haiku triage (fast, flag generously)
-           ↓
-     Sonnet validation (forensic, high bar)
-           ↓
-     tmux injection + sound alert
+
+## Usage
+
+Pathos is a drop-in replacement for `claude` — use it exactly the same way, with all the same options:
+
+```bash
+pathos                              # start a supervised session
+pathos -p "fix the login bug"       # pass a prompt
+pathos --model opus                 # any claude option works
+pathos --resume <session-id>        # resume a previous session
+PATHOS_DEBUG=1 pathos               # debug mode (5s poll interval)
 ```
 
-Two-stage pipeline: a fast model scans every message for potential issues, then a stronger model validates flagged items with full context before interrupting. False positives are dismissed and tracked to prevent re-flagging.
+Under the hood, Pathos creates a tmux session, starts Claude Code inside it, and runs a supervisor in the background. You interact with Claude normally — the supervisor watches silently and only interrupts when it finds a real problem.
 
-## What it catches
+On exit, it prints a resume command so you can pick up where you left off, just like Claude.
+
+## What it catches and fixes
 
 - **Instruction violations** — agent ignoring CLAUDE.md rules, memory, or chat instructions
 - **Silent substitution** — agent choosing a different approach without asking
@@ -36,32 +50,6 @@ Two-stage pipeline: a fast model scans every message for potential issues, then 
 - Python 3.10+
 - [tmux](https://github.com/tmux/tmux)
 - [Claude Code CLI](https://docs.anthropic.com/en/docs/claude-code) (`claude` command)
-
-## Install
-
-```bash
-curl -fsSL https://raw.githubusercontent.com/stefanopochet/pathos/main/install.sh | bash
-```
-
-Or clone and install manually:
-
-```bash
-git clone https://github.com/stefanopochet/pathos.git
-cd pathos
-./install.sh
-```
-
-## Usage
-
-```bash
-pathos                          # start a supervised session
-pathos --resume <session-id>    # resume a previous session
-PATHOS_DEBUG=1 pathos           # debug mode (5s poll interval)
-```
-
-Pathos creates a tmux session, starts Claude Code inside it, and runs a supervisor in the background. You interact with Claude normally — the supervisor watches silently and only interrupts when it finds a real problem.
-
-On exit, it prints a resume command so you can pick up where you left off.
 
 ## Configuration
 
