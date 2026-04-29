@@ -12,7 +12,16 @@ die() { echo "Error: $1" >&2; exit 1; }
 check_deps() {
     local missing=""
     command -v python3 >/dev/null 2>&1 || missing="$missing python3"
-    command -v tmux >/dev/null 2>&1    || missing="$missing tmux"
+    if ! command -v tmux >/dev/null 2>&1; then
+        echo ""
+        echo "Error: tmux is required but not installed."
+        echo ""
+        echo "  brew install tmux"
+        echo ""
+        echo "  Don't have Homebrew? Follow the install instructions at https://brew.sh"
+        echo ""
+        exit 1
+    fi
     command -v claude >/dev/null 2>&1  || missing="$missing claude"
 
     if [ -n "$missing" ]; then
