@@ -155,8 +155,10 @@ def poll_loop(tmux_session: str, jsonl: Path, log_path: Path, poll_sec: int):
 
     init_summary(session_id, jsonl)
 
+    cycle = 0
     while True:
         time.sleep(poll_sec)
+        cycle += 1
         if not session_alive(tmux_session):
             log_entry(log_path, {"event": "stopped", "reason": "tmux session gone"}, agent_name)
             return
@@ -173,15 +175,22 @@ def poll_loop(tmux_session: str, jsonl: Path, log_path: Path, poll_sec: int):
                 init_summary(session_id, jsonl)
 
             if not jsonl.exists():
+                log_entry(log_path, {"event": "poll", "cycle": cycle, "status": "no_jsonl"}, agent_name)
                 continue
             n = sum(1 for _ in open(jsonl))
             if n <= since:
+                log_entry(log_path, {"event": "poll", "cycle": cycle, "status": "no_new_lines", "lines": n}, agent_name)
                 continue
 
+            log_entry(log_path, {"event": "poll", "cycle": cycle, "status": "new_activity", "lines": n, "since": since}, agent_name)
+
+            t0 = time.monotonic()
             summary, flagged, reason = triage(jsonl, since, session_id, config)
+            triage_sec = round(time.monotonic() - t0, 1)
             log_entry(log_path, {
                 "stage": "triage", "flagged": flagged,
                 "lines": n, "summary": summary, "reason": reason,
+                "duration_sec": triage_sec,
             }, agent_name)
 
             if summary:
@@ -192,13 +201,16 @@ def poll_loop(tmux_session: str, jsonl: Path, log_path: Path, poll_sec: int):
                 since = n
                 continue
 
+            t0 = time.monotonic()
             confirmed, val_title, val_reason = validate(
                 jsonl, since, n, session_id, summary, reason, config,
             )
+            validate_sec = round(time.monotonic() - t0, 1)
             since = n
             log_entry(log_path, {
                 "stage": "validate", "confirmed": confirmed,
                 "lines": n, "title": val_title, "reason": val_reason,
+                "duration_sec": validate_sec,
             }, agent_name)
 
             if not confirmed:
