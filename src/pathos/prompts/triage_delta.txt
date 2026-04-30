@@ -1,0 +1,19 @@
+New activity detected. Review the new transcript lines below against the standards
+established in our conversation. The session context has been updated.
+
+SESSION CONTEXT (updated):
+{context}
+
+NEW TRANSCRIPT (lines {since}+ from {jsonl}):
+{transcript}
+
+Scan every new agent entry individually. Apply the same review standards.
+When in doubt, flag it.
+
+OUTPUT — no preamble, use this exact format:
+SUMMARY: <2-3 sentence summary of what the agent has been doing>
+VERDICT: Ok
+OR
+SUMMARY: <2-3 sentence summary>
+VERDICT: FLAG
+REASON: <specific description of what you saw and why it falls short>

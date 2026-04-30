@@ -21,3 +21,7 @@
 # Delay in seconds between pasting text and pressing Enter (seconds)
 # Increase if injections don't auto-submit
 # inject_delay: 0.1
+
+# Keep triage and validation conversations open across cycles
+# Sends only new transcript lines instead of re-creating sessions each time
+# persistent_sessions: false

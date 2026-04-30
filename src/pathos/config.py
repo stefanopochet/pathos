@@ -18,6 +18,7 @@ DEFAULTS = {
     "debug_poll_interval": 5,
     "alert_command": "afplay /System/Library/Sounds/Sosumi.aiff",
     "inject_delay": 0.1,
+    "persistent_sessions": False,
 }
 
 

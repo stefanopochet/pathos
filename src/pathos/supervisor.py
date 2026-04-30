@@ -4,6 +4,7 @@ import os
 import select
 import subprocess
 import time
+import uuid
 from datetime import datetime, timezone
 from pathlib import Path
 
@@ -40,24 +41,32 @@ def _projects_dir() -> Path:
     return Path.home() / ".claude" / "projects" / cwd.replace("/", "-")
 
 
-def run_claude(model: str, prompt: str) -> tuple[str | None, str | None]:
-    """Run claude -p with a given model. Returns (stdout, error)."""
+def run_claude(model: str, prompt: str, resume_id: str | None = None,
+               session_id: str | None = None) -> tuple[str | None, str | None]:
+    """Run claude -p. With resume_id, continues an existing conversation.
+    With session_id, starts a new conversation with that ID.
+    Returns (stdout, error)."""
     env = {k: v for k, v in os.environ.items() if k != "CLAUDECODE"}
     proj = _projects_dir()
     before = set(proj.glob("*.jsonl")) if proj.exists() else set()
 
+    cmd = ["claude", "-p", "--model", model]
+    if resume_id:
+        cmd.extend(["--resume", resume_id])
+    elif session_id:
+        cmd.extend(["--session-id", session_id])
+    else:
+        cmd.append("--no-session-persistence")
+    cmd.append(prompt)
+
     try:
         proc = subprocess.run(
-            ["claude", "-p",
-             "--model", model,
-             "--no-session-persistence",
-             prompt],
-            capture_output=True, text=True, timeout=300, env=env,
+            cmd, capture_output=True, text=True, timeout=300, env=env,
         )
     except subprocess.TimeoutExpired:
         return None, "timed out after 300s"
     finally:
-        if proj.exists():
+        if not resume_id and not session_id and proj.exists():
             for f in set(proj.glob("*.jsonl")) - before:
                 f.unlink(missing_ok=True)
 
@@ -84,21 +93,6 @@ def parse_triage_output(stdout: str) -> tuple[str, bool, str]:
     return summary, flagged, reason
 
 
-def triage(jsonl: Path, since: int, session_id: str, config: dict) -> tuple[str, bool, str]:
-    """Stage 1: fast scan. Returns (summary, flagged, reason)."""
-    context = get_context(session_id, jsonl)
-    transcript = extract_transcript(jsonl, since)
-    prompt = load_prompt("triage.txt").format(
-        jsonl=jsonl, since=since, context=context, transcript=transcript,
-    )
-    stdout, err = run_claude(config["triage_model"], prompt)
-
-    if err:
-        return "", False, f"triage error: {err}"
-
-    return parse_triage_output(stdout)
-
-
 def parse_validate_output(stdout: str) -> tuple[bool, str, str]:
     """Parse VERDICT/TITLE/REASON format from validator output."""
     confirmed = False
@@ -116,26 +110,114 @@ def parse_validate_output(stdout: str) -> tuple[bool, str, str]:
     return confirmed, title, reason
 
 
-def validate(jsonl: Path, since: int, lines: int, session_id: str,
-             triage_summary: str, triage_reason: str, config: dict) -> tuple[bool, str, str]:
-    """Stage 2: deep validation. Returns (confirmed, title, reason)."""
+# --- One-shot mode (persistent_sessions: false) ---
+
+def triage_oneshot(jsonl: Path, since: int, session_id: str,
+                   config: dict) -> tuple[str, bool, str]:
+    """Stage 1: fast scan with fresh session. Returns (summary, flagged, reason)."""
+    context = get_context(session_id, jsonl)
+    transcript = extract_transcript(jsonl, since)
+    prompt = load_prompt("triage.txt").format(
+        jsonl=jsonl, since=since, context=context, transcript=transcript,
+    )
+    stdout, err = run_claude(config["triage_model"], prompt)
+    if err:
+        return "", False, f"triage error: {err}"
+    return parse_triage_output(stdout)
+
+
+def validate_oneshot(jsonl: Path, since: int, lines: int, session_id: str,
+                     triage_summary: str, triage_reason: str,
+                     config: dict) -> tuple[bool, str, str]:
+    """Stage 2: deep validation with fresh session. Returns (confirmed, title, reason)."""
     context = get_context(session_id, jsonl)
     transcript = extract_transcript(jsonl, since)
     prompt = load_prompt("validate.txt").format(
-        jsonl=jsonl, since=since, lines=lines,
-        session_id=session_id,
-        triage_summary=triage_summary,
-        triage_reason=triage_reason,
-        context=context,
-        transcript=transcript,
+        jsonl=jsonl, since=since, lines=lines, session_id=session_id,
+        triage_summary=triage_summary, triage_reason=triage_reason,
+        context=context, transcript=transcript,
     )
     stdout, err = run_claude(config["validate_model"], prompt)
-
     if err:
         return False, "", f"validate error: {err}"
-
     return parse_validate_output(stdout)
 
+
+# --- Persistent mode (persistent_sessions: true) ---
+# TODO: session rotation — persistent sessions accumulate context indefinitely.
+# Add rotation after N cycles or N lines to prevent context exhaustion.
+
+class PersistentSession:
+    """Manages a persistent claude -p conversation for triage or validation."""
+
+    def __init__(self, role: str, model_key: str, init_prompt: str, delta_prompt: str):
+        self.role = role
+        self.model_key = model_key
+        self.init_prompt = init_prompt
+        self.delta_prompt = delta_prompt
+        self.claude_session_id: str | None = None
+
+    def _new_session_id(self) -> str:
+        sid = str(uuid.uuid4())
+        self.claude_session_id = sid
+        return sid
+
+    def reset(self):
+        self.claude_session_id = None
+
+    def call(self, config: dict, prompt_vars: dict) -> tuple[str | None, str | None]:
+        model = config[self.model_key]
+
+        if self.claude_session_id is None:
+            sid = self._new_session_id()
+            prompt = load_prompt(self.init_prompt).format(**prompt_vars)
+            stdout, err = run_claude(model, prompt, session_id=sid)
+            if err:
+                self.reset()
+                return None, err
+            return stdout, None
+
+        prompt = load_prompt(self.delta_prompt).format(**prompt_vars)
+        stdout, err = run_claude(model, prompt, resume_id=self.claude_session_id)
+        if err:
+            sid = self._new_session_id()
+            prompt = load_prompt(self.init_prompt).format(**prompt_vars)
+            stdout, err = run_claude(model, prompt, session_id=sid)
+            if err:
+                self.reset()
+                return None, f"fallback init also failed: {err}"
+            return stdout, None
+        return stdout, None
+
+
+def triage_persistent(jsonl: Path, since: int, session_id: str, config: dict,
+                      ps: PersistentSession) -> tuple[str, bool, str]:
+    context = get_context(session_id, jsonl)
+    transcript = extract_transcript(jsonl, since)
+    prompt_vars = dict(jsonl=jsonl, since=since, context=context, transcript=transcript)
+    stdout, err = ps.call(config, prompt_vars)
+    if err:
+        return "", False, f"triage error: {err}"
+    return parse_triage_output(stdout)
+
+
+def validate_persistent(jsonl: Path, since: int, lines: int, session_id: str,
+                        triage_summary: str, triage_reason: str, config: dict,
+                        ps: PersistentSession) -> tuple[bool, str, str]:
+    context = get_context(session_id, jsonl)
+    transcript = extract_transcript(jsonl, since)
+    prompt_vars = dict(
+        jsonl=jsonl, since=since, lines=lines, session_id=session_id,
+        triage_summary=triage_summary, triage_reason=triage_reason,
+        context=context, transcript=transcript,
+    )
+    stdout, err = ps.call(config, prompt_vars)
+    if err:
+        return False, "", f"validate error: {err}"
+    return parse_validate_output(stdout)
+
+
+# --- Shared ---
 
 def play_alert(config: dict):
     """Run the configured alert command."""
@@ -166,9 +248,21 @@ def poll_loop(tmux_session: str, jsonl: Path, log_path: Path, poll_sec: int):
     since = sum(1 for _ in open(jsonl)) if jsonl.exists() else 0
     session_id = jsonl.stem
     agent_name = tmux_session
+    persistent = config.get("persistent_sessions", False)
+
+    triage_ps = None
+    validate_ps = None
+    if persistent:
+        triage_ps = PersistentSession(
+            "triage", "triage_model", "triage_init.txt", "triage_delta.txt",
+        )
+        validate_ps = PersistentSession(
+            "validate", "validate_model", "validate_init.txt", "validate_delta.txt",
+        )
 
     init_summary(session_id, jsonl)
-    log_entry(log_path, {"event": "watching", "mode": "kqueue", "heartbeat_sec": poll_sec}, agent_name)
+    mode = "kqueue+persistent" if persistent else "kqueue"
+    log_entry(log_path, {"event": "watching", "mode": mode, "heartbeat_sec": poll_sec}, agent_name)
 
     cycle = 0
     while True:
@@ -176,7 +270,6 @@ def poll_loop(tmux_session: str, jsonl: Path, log_path: Path, poll_sec: int):
             log_entry(log_path, {"event": "stopped", "reason": "tmux session gone"}, agent_name)
             return
 
-        # Block until JSONL is written to (or heartbeat timeout)
         if jsonl.exists():
             size_before = jsonl.stat().st_size
             fd = os.open(str(jsonl), os.O_RDONLY)
@@ -207,6 +300,10 @@ def poll_loop(tmux_session: str, jsonl: Path, log_path: Path, poll_sec: int):
                 since = 0
                 session_id = jsonl.stem
                 init_summary(session_id, jsonl)
+                if triage_ps:
+                    triage_ps.reset()
+                if validate_ps:
+                    validate_ps.reset()
 
             n = sum(1 for _ in open(jsonl))
             if n <= since:
@@ -216,12 +313,20 @@ def poll_loop(tmux_session: str, jsonl: Path, log_path: Path, poll_sec: int):
             log_entry(log_path, {"event": "wake", "cycle": cycle, "lines": n, "since": since}, agent_name)
 
             t0 = time.monotonic()
-            summary, flagged, reason = triage(jsonl, since, session_id, config)
+            if persistent:
+                summary, flagged, reason = triage_persistent(
+                    jsonl, since, session_id, config, triage_ps,
+                )
+            else:
+                summary, flagged, reason = triage_oneshot(
+                    jsonl, since, session_id, config,
+                )
             triage_sec = round(time.monotonic() - t0, 1)
             log_entry(log_path, {
                 "stage": "triage", "flagged": flagged,
                 "lines": n, "summary": summary, "reason": reason,
                 "duration_sec": triage_sec,
+                "persistent": persistent,
             }, agent_name)
 
             if summary:
@@ -233,15 +338,21 @@ def poll_loop(tmux_session: str, jsonl: Path, log_path: Path, poll_sec: int):
                 continue
 
             t0 = time.monotonic()
-            confirmed, val_title, val_reason = validate(
-                jsonl, since, n, session_id, summary, reason, config,
-            )
+            if persistent:
+                confirmed, val_title, val_reason = validate_persistent(
+                    jsonl, since, n, session_id, summary, reason, config, validate_ps,
+                )
+            else:
+                confirmed, val_title, val_reason = validate_oneshot(
+                    jsonl, since, n, session_id, summary, reason, config,
+                )
             validate_sec = round(time.monotonic() - t0, 1)
             since = n
             log_entry(log_path, {
                 "stage": "validate", "confirmed": confirmed,
                 "lines": n, "title": val_title, "reason": val_reason,
                 "duration_sec": validate_sec,
+                "persistent": persistent,
             }, agent_name)
 
             if not confirmed:

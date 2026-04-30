@@ -1,0 +1,22 @@
+New triage flag to investigate. Apply the same investigation standards established
+in our conversation.
+
+SESSION CONTEXT (updated):
+{context}
+
+TRIAGE FLAG:
+- summary: {triage_summary}
+- reason: {triage_reason}
+
+TRANSCRIPT (lines {since} to {lines} from {jsonl}):
+{transcript}
+
+Investigate thoroughly. Form your own judgment. When in doubt, dismiss.
+
+OUTPUT — no preamble, use this exact format:
+VERDICT: DISMISS
+REASON: <one-sentence explanation>
+OR
+VERDICT: CRITICAL
+TITLE: <concise one-liner>
+REASON: <technical details — specific enough for the agent to locate and fix>
