@@ -14,7 +14,7 @@ from .session import find_jsonl, inject_tmux, session_alive, setup_tmux_keys, wa
 
 INJECTION_TEMPLATE = (
     "[PATHOS] I spotted an issue while supervising your work.\n\n"
-    "— {title}\n"
+    "— {title}\n\n"
     "— {reason}\n\n"
     "— Please stop, review what happened, and fix it if you can. "
     "Otherwise, pause and let's align."
