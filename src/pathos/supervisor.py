@@ -1,6 +1,7 @@
 """Two-stage supervisor: Haiku triage → Sonnet validation → tmux injection."""
 import json
 import os
+import select
 import subprocess
 import time
 from datetime import datetime, timezone
@@ -146,6 +147,19 @@ def play_alert(config: dict):
             pass
 
 
+def _wait_for_write(fd: int, timeout_sec: int) -> bool:
+    """Block until fd is written to, or timeout. Returns True if file changed."""
+    kq = select.kqueue()
+    ev = select.kevent(fd, filter=select.KQ_FILTER_VNODE,
+                       flags=select.KQ_EV_ADD | select.KQ_EV_CLEAR,
+                       fflags=select.KQ_NOTE_WRITE)
+    try:
+        events = kq.control([ev], 1, timeout_sec)
+        return len(events) > 0
+    finally:
+        kq.close()
+
+
 def poll_loop(tmux_session: str, jsonl: Path, log_path: Path, poll_sec: int):
     config = load_config()
     setup_tmux_keys(tmux_session)
@@ -154,14 +168,29 @@ def poll_loop(tmux_session: str, jsonl: Path, log_path: Path, poll_sec: int):
     agent_name = tmux_session
 
     init_summary(session_id, jsonl)
+    log_entry(log_path, {"event": "watching", "mode": "kqueue", "heartbeat_sec": poll_sec}, agent_name)
 
     cycle = 0
     while True:
-        time.sleep(poll_sec)
-        cycle += 1
         if not session_alive(tmux_session):
             log_entry(log_path, {"event": "stopped", "reason": "tmux session gone"}, agent_name)
             return
+
+        # Block until JSONL is written to (or heartbeat timeout)
+        if jsonl.exists():
+            fd = os.open(str(jsonl), os.O_RDONLY)
+            try:
+                changed = _wait_for_write(fd, poll_sec)
+            finally:
+                os.close(fd)
+            if not changed:
+                continue
+        else:
+            time.sleep(poll_sec)
+            continue
+
+        cycle += 1
+
         try:
             new_jsonl = find_jsonl(tmux_session, timeout_sec=3)
             if new_jsonl and new_jsonl != jsonl:
@@ -174,15 +203,11 @@ def poll_loop(tmux_session: str, jsonl: Path, log_path: Path, poll_sec: int):
                 session_id = jsonl.stem
                 init_summary(session_id, jsonl)
 
-            if not jsonl.exists():
-                log_entry(log_path, {"event": "poll", "cycle": cycle, "status": "no_jsonl"}, agent_name)
-                continue
             n = sum(1 for _ in open(jsonl))
             if n <= since:
-                log_entry(log_path, {"event": "poll", "cycle": cycle, "status": "no_new_lines", "lines": n}, agent_name)
                 continue
 
-            log_entry(log_path, {"event": "poll", "cycle": cycle, "status": "new_activity", "lines": n, "since": since}, agent_name)
+            log_entry(log_path, {"event": "wake", "cycle": cycle, "lines": n, "since": since}, agent_name)
 
             t0 = time.monotonic()
             summary, flagged, reason = triage(jsonl, since, session_id, config)
