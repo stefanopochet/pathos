@@ -75,14 +75,24 @@ def wait_for_idle(tmux_session: str, timeout_sec: int = 60) -> bool:
     return False
 
 
-def inject_tmux(tmux_session: str, text: str, retries: int = 3):
-    """Send text into a tmux session with retry on transient errors."""
+def inject_tmux(tmux_session: str, text: str, inject_delay: float = 0.1, retries: int = 3):
+    """Paste text into a tmux session via load-buffer (preserves newlines)."""
+    import tempfile
     for attempt in range(retries):
         try:
+            with tempfile.NamedTemporaryFile(mode="w", suffix=".txt", delete=False) as f:
+                f.write(text)
+                tmp = f.name
             subprocess.run(
-                ["tmux", "send-keys", "-t", tmux_session, "-l", text],
+                ["tmux", "load-buffer", tmp],
                 capture_output=True, text=True, check=True,
             )
+            Path(tmp).unlink(missing_ok=True)
+            subprocess.run(
+                ["tmux", "paste-buffer", "-t", tmux_session, "-p"],
+                capture_output=True, text=True, check=True,
+            )
+            time.sleep(inject_delay)
             subprocess.run(
                 ["tmux", "send-keys", "-t", tmux_session, "Enter"],
                 capture_output=True, text=True, check=True,

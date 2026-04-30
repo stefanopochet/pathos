@@ -13,9 +13,9 @@ from .context import append_summary, extract_transcript, get_context, init_summa
 from .session import find_jsonl, inject_tmux, session_alive, setup_tmux_keys, wait_for_idle
 
 INJECTION_TEMPLATE = (
-    "[PATHOS] I spotted an issue while supervising your work. "
-    "— {title} "
-    "— {reason} "
+    "[PATHOS] I spotted an issue while supervising your work.\n"
+    "— {title}\n"
+    "— {reason}\n"
     "— Please stop, review what happened, and fix it if you can. "
     "Otherwise, pause and let's align."
 )
@@ -252,7 +252,7 @@ def poll_loop(tmux_session: str, jsonl: Path, log_path: Path, poll_sec: int):
                 text = INJECTION_TEMPLATE.format(title=val_title, reason=val_reason)
                 if not wait_for_idle(tmux_session, timeout_sec=120):
                     log_entry(log_path, {"event": "inject_skipped", "reason": "agent not idle"}, agent_name)
-                inject_tmux(tmux_session, text)
+                inject_tmux(tmux_session, text, inject_delay=config.get("inject_delay", 0.1))
                 play_alert(config)
                 log_entry(log_path, {"event": "injected", "title": val_title, "reason": val_reason}, agent_name)
             except subprocess.CalledProcessError as e:

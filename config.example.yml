@@ -17,3 +17,7 @@
 # Sound played when a critical issue is confirmed and injected
 # Set to "" to disable
 # alert_command: afplay /System/Library/Sounds/Sosumi.aiff
+
+# Delay in seconds between pasting text and pressing Enter (seconds)
+# Increase if injections don't auto-submit
+# inject_delay: 0.1
