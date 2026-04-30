@@ -13,9 +13,9 @@ from .context import append_summary, extract_transcript, get_context, init_summa
 from .session import find_jsonl, inject_tmux, session_alive, setup_tmux_keys, wait_for_idle
 
 INJECTION_TEMPLATE = (
-    "[PATHOS] I spotted an issue while supervising your work.\n"
+    "[PATHOS] I spotted an issue while supervising your work.\n\n"
     "— {title}\n"
-    "— {reason}\n"
+    "— {reason}\n\n"
     "— Please stop, review what happened, and fix it if you can. "
     "Otherwise, pause and let's align."
 )
