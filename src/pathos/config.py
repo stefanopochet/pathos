@@ -13,7 +13,7 @@ SUPERVISED_DIR = PATHOS_DIR / "supervised"
 
 DEFAULTS = {
     "triage_model": "claude-haiku-4-5-20251001",
-    "validate_model": "claude-opus-4-7",
+    "validate_model": "claude-sonnet-4-6",
     "poll_interval": 60,
     "debug_poll_interval": 5,
     "alert_command": "afplay /System/Library/Sounds/Sosumi.aiff",

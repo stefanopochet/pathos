@@ -357,8 +357,12 @@ def poll_loop(tmux_session: str, jsonl: Path, log_path: Path, poll_sec: int):
                 since = n
                 if validate_ps and not validate_ps.is_warm:
                     context = get_context(session_id, jsonl)
+                    transcript = extract_transcript(jsonl, 0)
                     t0_w = time.monotonic()
-                    warmup_err = validate_ps.warmup(config, dict(context=context))
+                    warmup_err = validate_ps.warmup(config, dict(
+                        context=context, transcript=transcript,
+                        since=0, jsonl=jsonl,
+                    ))
                     warmup_sec = round(time.monotonic() - t0_w, 1)
                     log_entry(log_path, {
                         "event": "validate_warmup",

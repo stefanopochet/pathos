@@ -6,7 +6,7 @@
 # triage_model: claude-haiku-4-5-20251001
 
 # Model used for deep validation (investigates flagged issues before interrupting)
-# validate_model: claude-opus-4-7
+# validate_model: claude-sonnet-4-6
 
 # How often the supervisor checks for new agent activity (seconds)
 # poll_interval: 60
