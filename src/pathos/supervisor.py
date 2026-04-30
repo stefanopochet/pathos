@@ -178,14 +178,19 @@ def poll_loop(tmux_session: str, jsonl: Path, log_path: Path, poll_sec: int):
 
         # Block until JSONL is written to (or heartbeat timeout)
         if jsonl.exists():
+            size_before = jsonl.stat().st_size
             fd = os.open(str(jsonl), os.O_RDONLY)
             try:
                 changed = _wait_for_write(fd, poll_sec)
             finally:
                 os.close(fd)
+            size_after = jsonl.stat().st_size if jsonl.exists() else 0
             if not changed:
+                log_entry(log_path, {"event": "heartbeat", "size": size_before}, agent_name)
                 continue
+            log_entry(log_path, {"event": "kqueue_wake", "size_before": size_before, "size_after": size_after}, agent_name)
         else:
+            log_entry(log_path, {"event": "waiting_for_jsonl", "path": str(jsonl)}, agent_name)
             time.sleep(poll_sec)
             continue
 
@@ -205,6 +210,7 @@ def poll_loop(tmux_session: str, jsonl: Path, log_path: Path, poll_sec: int):
 
             n = sum(1 for _ in open(jsonl))
             if n <= since:
+                log_entry(log_path, {"event": "wake_no_new_lines", "lines": n, "since": since}, agent_name)
                 continue
 
             log_entry(log_path, {"event": "wake", "cycle": cycle, "lines": n, "since": since}, agent_name)
