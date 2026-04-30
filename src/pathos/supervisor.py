@@ -150,11 +150,13 @@ def validate_oneshot(jsonl: Path, since: int, lines: int, session_id: str,
 class PersistentSession:
     """Manages a persistent claude -p conversation for triage or validation."""
 
-    def __init__(self, role: str, model_key: str, init_prompt: str, delta_prompt: str):
+    def __init__(self, role: str, model_key: str, init_prompt: str, delta_prompt: str,
+                 warmup_prompt: str | None = None):
         self.role = role
         self.model_key = model_key
         self.init_prompt = init_prompt
         self.delta_prompt = delta_prompt
+        self.warmup_prompt = warmup_prompt
         self.claude_session_id: str | None = None
 
     def _new_session_id(self) -> str:
@@ -164,6 +166,23 @@ class PersistentSession:
 
     def reset(self):
         self.claude_session_id = None
+
+    @property
+    def is_warm(self) -> bool:
+        return self.claude_session_id is not None
+
+    def warmup(self, config: dict, prompt_vars: dict) -> str | None:
+        """Pre-warm the session with context. Returns error or None on success."""
+        if self.is_warm or not self.warmup_prompt:
+            return None
+        model = config[self.model_key]
+        sid = self._new_session_id()
+        prompt = load_prompt(self.warmup_prompt).format(**prompt_vars)
+        _, err = run_claude(model, prompt, session_id=sid)
+        if err:
+            self.reset()
+            return err
+        return None
 
     def call(self, config: dict, prompt_vars: dict) -> tuple[str | None, str | None]:
         model = config[self.model_key]
@@ -258,6 +277,7 @@ def poll_loop(tmux_session: str, jsonl: Path, log_path: Path, poll_sec: int):
         )
         validate_ps = PersistentSession(
             "validate", "validate_model", "validate_init.txt", "validate_delta.txt",
+            warmup_prompt="validate_warmup.txt",
         )
 
     init_summary(session_id, jsonl)
@@ -335,6 +355,16 @@ def poll_loop(tmux_session: str, jsonl: Path, log_path: Path, poll_sec: int):
 
             if not flagged:
                 since = n
+                if validate_ps and not validate_ps.is_warm:
+                    context = get_context(session_id, jsonl)
+                    t0_w = time.monotonic()
+                    warmup_err = validate_ps.warmup(config, dict(context=context))
+                    warmup_sec = round(time.monotonic() - t0_w, 1)
+                    log_entry(log_path, {
+                        "event": "validate_warmup",
+                        "duration_sec": warmup_sec,
+                        "error": warmup_err or "",
+                    }, agent_name)
                 continue
 
             t0 = time.monotonic()
